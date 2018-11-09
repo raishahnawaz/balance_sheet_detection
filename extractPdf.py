@@ -2,18 +2,19 @@ import pdftables_api
 import tabula
 import xlrd
 import pandas as pd
-
+import numpy
 
 def CalculateDE(df):
     '''CODE TO ADD //Check for currency signs in the table (i.e $ in our case)'''
     Currency = "USD"
 
+    df.replace('', numpy.nan, inplace = True)
     '''CODE TO ADD //Look for units on Balance Sheet table (i.e thousands, millions)'''
     Denomination = df.iloc[2, 0]
     print("Denomination:", Denomination)
 
-    months = df.iloc[3, :]
-    print("Months:", months)
+    months = df.iloc[3, :].dropna()
+    print("Months:", months,type(months))
     years = df.iloc[4, :]
     print("\nYears:", years)
 
@@ -33,6 +34,9 @@ def CalculateDE(df):
     Outputlabels = ["Date of Financials used", "Debt", "Long term borrowings", "Short term borrowings", "Equity",
                     "Shareholder's Equity", "Shareholder's loan", \
                     "Final Debt", "Final Equity", "DE ratio"]
+
+
+    row=[]
 
     years_average_DE_ratio = None
 
