@@ -10,45 +10,31 @@ import os
 def CalculateDE(df):
     '''CODE TO ADD //Check for currency signs in the table (i.e $ in our case)'''
     Currency = "USD"
-    tuplesList=list()
-    IndexList=[29]
-    TempStr="{"
+    tuplesList=dict()
+    IndexList=[29,31,39]
     for x in IndexList:
         temp = df.iloc[x, :]
         print("LongtermDebt:", temp)
         # a = [numpy.NAN if x.value == '' else x.value for x in LongtermDebt]
         a = [x.value for x in temp if x.value != '']
-        #print("LongtermDebt Isnull", a)
-        TempStr+="\""
-        TempStr+=a[0]+"\":"+str(a)+","
+        tuplesList[a[0]]=a[1:]
 
-    TempStr =TempStr[0:-1]+"}"
+    #print ("tuplesList",tuplesList)
+    months = df.iloc[3, :]
+    a = [x.value for x in months if x.value != '']
+    tuplesList["months"] = a
 
-    print("TempStr:" ,TempStr)
-    print ("tuplesList",tuplesList)
-    ResultsDf = pd.DataFrame(TempStr)
+    years = df.iloc[4, :]
+    a = [x.value for x in years if x.value != '']
+    tuplesList["years"] = a
+
+
+    ResultsDf = pd.DataFrame(tuplesList)
     print("Data Frame", ResultsDf.head(2))
 
     '''CODE TO ADD //Look for units on Balance Sheet table (i.e thousands, millions)'''
     Denomination = df.iloc[2, 0]
     print("Denomination:", Denomination)
-    months = df.iloc[3, :].dropna()
-    print("Months:", months,type(months))
-    years = df.iloc[4, :]
-    print("\nYears:", years)
-
-    #LongtermDebt = df[df['one'] == 'Long-term debt']
-    #print("LongtermDebt:", LongtermDebt)
-
-
-
-    print(ResultsDf.head(2))
-
-    ShortTermDebt = df.iloc[31, :]
-    print("ShortTermDebt:", ShortTermDebt)
-
-    ShareholderEquity = df.iloc[39, :]
-    print("ShareholderEquity:", ShareholderEquity)
 
     ShareholderLoan = None
     Outputlabels = ["Date of Financials used", "Debt", "Long term borrowings", "Short term borrowings", "Equity",
@@ -57,7 +43,9 @@ def CalculateDE(df):
     row=[]
 
     years_average_DE_ratio = None
-
+    writer = pd.ExcelWriter('outputFile.xlsx')
+    ResultsDf.to_excel(writer, sheet_name='Results',header=True)
+    writer.save()
 
 path=r"C:\Users\Rai Shahnawaz\Desktop\AI Challenge\reports"
 my_pdftables_api_key="cvmm56lxabx7"
@@ -103,7 +91,7 @@ if __name__ == '__main__':
     OutputDF=CalculateDE(df)
 
 
-            # Read pdf into DataFrame
+    # Read pdf into DataFrame
     #tabula.convert_into("testCopy.pdf", "output.csv", output_format="csv")
 
     #df = tabula.read_pdf("testCopy.pdf")
