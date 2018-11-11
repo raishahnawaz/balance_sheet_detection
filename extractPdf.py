@@ -2,7 +2,7 @@ import pdftables_api
 #import tabula
 import xlrd
 import pandas as pd
-import numpy
+import numpy as np
 import glob
 import os
 
@@ -15,11 +15,13 @@ def convert_pdfFiles_to_xlsx(src):
     path = os.path.join(src,"*.pdf")
     for file in glob.glob(path):
         pdfFiles.append(file)
-
+    ExcelFiles = []
     print("PDF Files:", pdfFiles)
     for file in pdfFiles:
         c = pdftables_api.Client(my_pdftables_api_key)
         #c.xlsx(file, file[0:len(file)-4]+'.xlsx')
+        ExcelFiles.append(file[0:len(file)-4]+'.xlsx')
+    return ExcelFiles
 
 def load_balance_sheet_toDF(filename):
     xl_workbook = xlrd.open_workbook(filename)
@@ -75,6 +77,69 @@ def parse_balance_sheet_for_DE(df):
     writer.save()
     return ResultsDf
 
+
+
+
+def extract_text_excel(files):
+    is_table = []
+    page_text = []
+    page_number = []
+    document_number = []
+    document_name = []
+
+    for i, file in enumerate(files):
+        try:
+            xl = pd.ExcelFile(file)
+            for j, sheet in enumerate(xl.sheet_names):
+                # save respective document and sheet number
+                document_name.append(file)
+                document_number.append(i)
+                page_number.append(j)
+                # convert the sheet to dataframe
+                df = xl.parse(sheet)
+                # Decision Stump for deciding table or not table
+                if df.shape[1] >= 3:
+                    # append 1 for table
+                    is_table.append(1)
+                else:
+                    # append 0 for not table
+                    is_table.append(0)
+                # Convert the dataframe to a single string
+                page_string = df.to_string()
+                # Remove NaN
+                # page_string = page_string.replace('NaN', ' ')
+                # Remove Extra Spaces from String
+                page_string = ' '.join(page_string.split())
+                # Save result in list
+                page_text.append(page_string)
+
+        except OSError as e:
+            print("Cannot open file : ", file)
+        except IOError:
+            print('An error occured trying to read the file :', file)
+        except xlrd.XLRDError:
+            print('Invalid input format for file : ', file)
+
+    page_number = np.array(page_number) + 1
+    document_number = np.array(document_number) + 1
+    df = pd.DataFrame({'document_number': document_number, 'document_name': document_name, 'sheet_number': page_number,
+                       'sheet_text': page_text, 'is_table': is_table})
+    return df
+
+def combine_data(generated_data, tagged_data):
+    print("generated_data: ", generated_data.shape,"tagged_data", tagged_data.shape)
+#    print("generated_data",generated_data.select('document_number', 'document_name'))
+
+    print("generated_data_col: ", generated_data.columns,"tagged_data_col", tagged_data.columns)
+
+    combined_data = pd.merge(generated_data, tagged_data, left_on=['document_number', 'sheet_number'], right_on=['Document', 'Page'])
+    print("Length (In Function1): ", combined_data.shape)
+    combined_data.drop(['SR#', 'Document', 'Document Name', 'Page'], inplace=True, axis=1)
+    combined_data.columns = ['document_number', 'document_name', 'sheet_number', 'sheet_text', 'is_table_heuristic','is_table_tagged', 'is_balance_sheet']
+    combined_data.is_table_tagged = combined_data.is_table_tagged.map({'yes': 1, 'no': 0})
+    combined_data.is_balance_sheet = combined_data.is_balance_sheet.map({'yes': 1, 'no': 0})
+    return combined_data
+
 if __name__ == '__main__':
 
     '''READ ALL PDFs FROM A DIRECTORY AND CONVERT ALL FILES INTO XLXS FORMAT USING pdftables-api'''
@@ -85,7 +150,28 @@ if __name__ == '__main__':
         print('Invalid given path.')
         exit(1)
 
-    convert_pdfFiles_to_xlsx(src)
+    XlsxFiles=convert_pdfFiles_to_xlsx(src)
+    print("File Names : ", XlsxFiles)
+    generated_data=extract_text_excel(XlsxFiles)
+    #print("Generated Data : ", generated_data.shape)
+
+    #print("TablePages[0]", generated_data[207])
+
+    try:
+        tagged_data = pd.read_csv('Tagged Data For AI Chellange - Sheet1.csv')
+    except OSError as e:
+        print("Cannot open file : ")
+    except IOError:
+        print('An error occured trying to read the file :')
+    except xlrd.XLRDError:
+        print('Invalid input format for file : ')
+
+    print("Tagged Data : ", tagged_data.shape)
+
+    combined_data=combine_data(generated_data, tagged_data)
+
+    print("Length (combined_data): ", combined_data.shape)
+    combined_data.head(5)
 
     '''OPEN A CONVERTED REPORT AND LOOK FOR THE BALANCE SHEET'''
     filename='output.xlsx'
