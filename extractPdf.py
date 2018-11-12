@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import glob
 import os
+import ntpath
 
 
 path=r"C:\Users\Rai Shahnawaz\Desktop\AI Challenge\reports"
@@ -86,13 +87,16 @@ def extract_text_excel(files):
     page_number = []
     document_number = []
     document_name = []
+    path_name = []
 
     for i, file in enumerate(files):
         try:
             xl = pd.ExcelFile(file)
             for j, sheet in enumerate(xl.sheet_names):
                 # save respective document and sheet number
-                document_name.append(file)
+                fileName = ntpath.basename(file)[:-5]
+                path_name.append(file)
+                document_name.append(fileName)
                 document_number.append(i)
                 page_number.append(j)
                 # convert the sheet to dataframe
@@ -122,20 +126,21 @@ def extract_text_excel(files):
 
     page_number = np.array(page_number) + 1
     document_number = np.array(document_number) + 1
-    df = pd.DataFrame({'document_number': document_number, 'document_name': document_name, 'sheet_number': page_number,
+    df = pd.DataFrame({'document_number': document_number, 'document_name': document_name,"file_path":path_name, 'sheet_number': page_number,
                        'sheet_text': page_text, 'is_table': is_table})
     return df
 
 def combine_data(generated_data, tagged_data):
     print("generated_data: ", generated_data.shape,"tagged_data", tagged_data.shape)
 #    print("generated_data",generated_data.select('document_number', 'document_name'))
-
     print("generated_data_col: ", generated_data.columns,"tagged_data_col", tagged_data.columns)
+    print(generated_data.document_name.unique())
 
-    combined_data = pd.merge(generated_data, tagged_data, left_on=['document_number', 'sheet_number'], right_on=['Document', 'Page'])
+    combined_data = pd.merge(generated_data, tagged_data, left_on=['document_name', 'sheet_number'], right_on=['Document Name', 'Page'])
     print("Length (In Function1): ", combined_data.shape)
+
     combined_data.drop(['SR#', 'Document', 'Document Name', 'Page'], inplace=True, axis=1)
-    combined_data.columns = ['document_number', 'document_name', 'sheet_number', 'sheet_text', 'is_table_heuristic','is_table_tagged', 'is_balance_sheet']
+    combined_data.columns = ['document_number', 'document_name', 'file_path','sheet_number', 'sheet_text', 'is_table_heuristic','is_table_tagged', 'is_balance_sheet']
     combined_data.is_table_tagged = combined_data.is_table_tagged.map({'yes': 1, 'no': 0})
     combined_data.is_balance_sheet = combined_data.is_balance_sheet.map({'yes': 1, 'no': 0})
     return combined_data
@@ -152,10 +157,13 @@ if __name__ == '__main__':
 
     XlsxFiles=convert_pdfFiles_to_xlsx(src)
     print("File Names : ", XlsxFiles)
-    generated_data=extract_text_excel(XlsxFiles)
-    #print("Generated Data : ", generated_data.shape)
 
-    #print("TablePages[0]", generated_data[207])
+
+    generated_data=extract_text_excel(XlsxFiles)
+    print("Generated Data : ", generated_data.shape)
+
+    print("TablePages[0]", generated_data.document_name.unique())
+
 
     try:
         tagged_data = pd.read_csv('Tagged Data For AI Chellange - Sheet1.csv')
@@ -171,7 +179,7 @@ if __name__ == '__main__':
     combined_data=combine_data(generated_data, tagged_data)
 
     print("Length (combined_data): ", combined_data.shape)
-    combined_data.head(5)
+    print (combined_data.head(5))
 
     '''OPEN A CONVERTED REPORT AND LOOK FOR THE BALANCE SHEET'''
     filename='output.xlsx'
